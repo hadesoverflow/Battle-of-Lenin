@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameBoard from './components/GameBoard';
 import MainMenu from './components/MainMenu';
 import Lobby from './components/Lobby';
@@ -26,8 +26,41 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   return newArray;
 };
 
-const CARD_IMAGE_FILES = Array.from({ length: 24 }, (_, i) => `card ${i + 1}.jpg`);
+const CARD_IMAGE_FILES = [
+  'card 1.png',
+  'card 2.jpg',
+  'card 3.png',
+  'card 4.jpg',
+  'card 5.png',
+  'card 6.jpg',
+  'card 7.png',
+  'card 8.png',
+  'card 9.png',
+  'card 10.jpg',
+  'card 11.jpg',
+  'card 12.jpg',
+  'card 13.png',
+  'card 14.jpg',
+  'card 15.jpg',
+  'card 16.jpg',
+  'card 17.jpg',
+  'card 18.png',
+  'card 19.jpg',
+  'card 20.png',
+  'card 21.jpg',
+  'card 22.png',
+  'card 23.jpg',
+  'card 24.jpg',
+];
 const CARD_IMAGE_PATHS = CARD_IMAGE_FILES.map((name) => `/images/${encodeURIComponent(name)}`);
+
+const VIEW_SOUNDTRACKS: Record<View, string> = {
+  menu: '/audio/Soundtrack1.mp3',
+  lobby: '/audio/Soundtrack1.mp3',
+  playing: '/audio/Soundtrack3.mp3',
+  finished: '/audio/Soundtrack3.mp3',
+  instructions: '/audio/Soundtrack1.mp3',
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('menu');
@@ -44,6 +77,35 @@ const App: React.FC = () => {
   const [focusedCard, setFocusedCard] = useState<FocusedCardState | null>(null);
   const [quizBank, setQuizBank] = useState<QuestionForm[]>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundTrackRef = useRef<string | null>(null);
+  const stopBackgroundAudio = useCallback(() => {
+    if (backgroundAudioRef.current) {
+      backgroundAudioRef.current.pause();
+      backgroundAudioRef.current.currentTime = 0;
+      backgroundAudioRef.current = null;
+      backgroundTrackRef.current = null;
+    }
+  }, []);
+  const playBackgroundAudio = useCallback(
+    (src: string) => {
+      if (backgroundTrackRef.current === src && backgroundAudioRef.current) {
+        if (backgroundAudioRef.current.paused) {
+          backgroundAudioRef.current.play().catch(() => {});
+        }
+        return;
+      }
+
+      stopBackgroundAudio();
+      const audio = new Audio(src);
+      audio.loop = true;
+      audio.volume = 0.35;
+      backgroundAudioRef.current = audio;
+      backgroundTrackRef.current = src;
+      audio.play().catch(() => {});
+    },
+    [stopBackgroundAudio],
+  );
 
   useEffect(() => {
     const loadQuiz = async () => {
@@ -60,19 +122,38 @@ const App: React.FC = () => {
     };
     loadQuiz();
   }, []);
+  useEffect(() => {
+    if (focusedCard) {
+      stopBackgroundAudio();
+      return;
+    }
+    const targetTrack = VIEW_SOUNDTRACKS[view];
+    if (targetTrack) {
+      playBackgroundAudio(targetTrack);
+    } else {
+      stopBackgroundAudio();
+    }
+  }, [view, focusedCard, playBackgroundAudio, stopBackgroundAudio]);
+  useEffect(() => () => stopBackgroundAudio(), [stopBackgroundAudio]);
 
   const CARD_COUNT = 12; // Number of pairs (24 cards total)
 
   const createGameBoard = (qaPairs: QAPair[]) => {
+    const requiredCards = qaPairs.length * 2;
+    const availableImages = shuffleArray(CARD_IMAGE_PATHS);
+    if (availableImages.length < requiredCards) {
+      throw new Error('Không đủ ảnh để tạo bộ bài.');
+    }
     const gameCards: CardData[] = [];
     qaPairs.forEach((pair, index) => {
-      const imageSrc = CARD_IMAGE_PATHS[index % CARD_IMAGE_PATHS.length];
+      const questionImageSrc = availableImages[index * 2];
+      const answerImageSrc = availableImages[index * 2 + 1];
       gameCards.push({
         id: `q-${index}`,
         pairId: index,
         type: 'question',
         content: pair.question,
-        imageSrc,
+        imageSrc: questionImageSrc,
         isFlipped: false,
         isMatched: false,
         isLocked: false,
@@ -82,7 +163,7 @@ const App: React.FC = () => {
         pairId: index,
         type: 'answer',
         content: pair.answer,
-        imageSrc,
+        imageSrc: answerImageSrc,
         isFlipped: false,
         isMatched: false,
         isLocked: false,
@@ -231,31 +312,72 @@ const App: React.FC = () => {
   const renderFinishedModal = () => {
     if (view !== 'finished') return null;
     
-    const maxScore = Math.max(...players.map(p => p.score));
-    const winners = players.filter(p => p.score === maxScore);
+    const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+    const [first, second, third] = sortedPlayers;
+    const podium = sortedPlayers.slice(0, 3);
+    const maxScore = first?.score ?? 0;
+    const winners = sortedPlayers.filter((p) => p.score === maxScore);
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-        <div className="bg-[#fdf6e3] p-8 rounded-xl shadow-2xl text-center border-4 border-black w-full max-w-md">
-          <h2 className="text-3xl font-bold text-green-700 mb-4">
-            {winners.length > 1 ? "HÒA!" : "THẮNG LỢI!"}
-          </h2>
-          <p className="text-lg text-black mb-2">Người chiến thắng:</p>
-          <p className="text-2xl font-bold text-[#c70000] mb-6">
-            {winners.map(w => w.name).join(' & ')}
-          </p>
-          <div className="text-left text-black w-full mb-6">
-            <h3 className="font-bold text-center mb-2">Bảng Điểm Cuối Cùng:</h3>
+        <div className="bg-[#fdf6e3] p-8 rounded-xl shadow-2xl text-center border-4 border-black w-full max-w-2xl space-y-6">
+          <div>
+            <h2 className="text-3xl font-bold text-green-700 mb-2 uppercase">
+              {winners.length > 1 ? 'Đồng Quán Quân' : 'Chiến Thắng Tuyệt Đối'}
+            </h2>
+            <p className="text-lg text-black">
+              {winners.length > 1
+                ? `Người dẫn đầu: ${winners.map((w) => w.name).join(' & ')}`
+                : `Người chiến thắng: ${first?.name ?? 'Chưa xác định'}`}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {podium.map((player, index) => {
+              const rank = index + 1;
+              const rankStyles =
+                rank === 1
+                  ? 'bg-yellow-100 border-yellow-400 text-yellow-900'
+                  : rank === 2
+                  ? 'bg-gray-100 border-gray-400 text-gray-900'
+                  : 'bg-orange-100 border-orange-400 text-orange-900';
+              const label = `Top ${rank}`;
+              return (
+                <div
+                  key={player.id}
+                  className={`rounded-2xl border-2 shadow-inner p-4 flex flex-col items-center ${rankStyles}`}
+                >
+                  <span className="text-xs uppercase tracking-widest">{label}</span>
+                  <p className="text-xl font-bold mt-2">{player.name}</p>
+                  <p className="text-sm font-semibold mt-1">{player.score} điểm</p>
+                </div>
+              );
+            })}
+            {podium.length < 3 &&
+              Array.from({ length: 3 - podium.length }, (_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="rounded-2xl border-2 border-dashed border-gray-300 p-4 flex flex-col items-center text-gray-400"
+                >
+                  <span className="text-xs uppercase tracking-widest">Top {podium.length + i + 1}</span>
+                  <p className="text-sm mt-2">Chờ người chơi...</p>
+                </div>
+              ))}
+          </div>
+
+          <div className="text-left text-black w-full">
+            <h3 className="font-bold text-center mb-2">Bảng Điểm Cuối Cùng</h3>
             <ul className="space-y-1">
-              {players.sort((a,b) => b.score - a.score).map(p => (
+              {sortedPlayers.map((p, index) => (
                 <li key={p.id} className="flex justify-between">
-                  <span>{p.name}</span>
+                  <span>
+                    #{index + 1} {p.name}
+                  </span>
                   <span className="font-bold">{p.score}</span>
                 </li>
               ))}
             </ul>
           </div>
-          {/* Restart and Menu buttons are now in the sidebar */}
         </div>
       </div>
     );

@@ -15,6 +15,11 @@ const RATIO = 3 / 2;
 const PREP_COUNTDOWN = 3;
 const ANSWER_TIME_LIMIT = 20;
 const MAX_POINTS = 100;
+type QuizStage = 'countdown' | 'question';
+const QUIZ_STAGE_TRACKS: Record<QuizStage, { src: string; loop: boolean; volume: number }> = {
+  countdown: { src: '/audio/3s.mp3', loop: false, volume: 0.5 },
+  question: { src: '/audio/Soundtrack2.mp3', loop: true, volume: 0.35 },
+};
 
 const buildTransform = (x: number, y: number, scale: number) =>
   `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${scale})`;
@@ -46,6 +51,35 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
 
   const answerTimeRef = useRef(ANSWER_TIME_LIMIT);
   const finalizeRef = useRef(false);
+  const stageAudioRef = useRef<HTMLAudioElement | null>(null);
+  const stageTrackRef = useRef<QuizStage | null>(null);
+  const stopStageAudio = useCallback(() => {
+    if (stageAudioRef.current) {
+      stageAudioRef.current.pause();
+      stageAudioRef.current.currentTime = 0;
+      stageAudioRef.current = null;
+    }
+    stageTrackRef.current = null;
+  }, []);
+  const playStageAudio = useCallback(
+    (stage: QuizStage) => {
+      if (stageTrackRef.current === stage && stageAudioRef.current) {
+        if (stageAudioRef.current.paused) {
+          stageAudioRef.current.play().catch(() => {});
+        }
+        return;
+      }
+      stopStageAudio();
+      const config = QUIZ_STAGE_TRACKS[stage];
+      const audio = new Audio(config.src);
+      audio.loop = config.loop;
+      audio.volume = config.volume;
+      stageAudioRef.current = audio;
+      stageTrackRef.current = stage;
+      audio.play().catch(() => {});
+    },
+    [stopStageAudio],
+  );
 
   const targetSize = useMemo(() => {
     let width = Math.min(viewport.width * 0.5, 460);
@@ -57,6 +91,11 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
     }
     return { width, height };
   }, [viewport]);
+
+  const correctAnswers = useMemo(
+    () => new Set(quiz.answers.filter((answer) => answer.correct).map((answer) => answer.content)),
+    [quiz.answers],
+  );
 
   const initialTransform = useMemo(() => {
     const centerX = originRect ? originRect.left + originRect.width / 2 : viewport.width / 2;
@@ -115,6 +154,19 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
 
     return () => clearInterval(interval);
   }, [showCardImage, players.length, card.id]);
+  useEffect(() => {
+    const stage: QuizStage | null = showQuestionForm
+      ? 'question'
+      : prepCountdown !== null
+        ? 'countdown'
+        : null;
+    if (!stage) {
+      stopStageAudio();
+      return;
+    }
+    playStageAudio(stage);
+  }, [showQuestionForm, prepCountdown, playStageAudio, stopStageAudio]);
+  useEffect(() => () => stopStageAudio(), [stopStageAudio]);
 
   const finalizeQuiz = useCallback(() => {
     if (finalizeRef.current || players.length === 0) return;
@@ -273,12 +325,24 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
                         {quiz.answers.map((answer, index) => {
                           const letter = String.fromCharCode(65 + index);
                           const active = choice === answer.content;
+                          const isCorrectChoice = correctAnswers.has(answer.content);
+                          let resultHighlight = '';
+                          if (quizFinished) {
+                            const playerAnsweredThis = active;
+                            if (playerAnsweredThis) {
+                              resultHighlight = result?.correct
+                                ? 'animate-pulse border-green-400 bg-green-500/20 text-green-100'
+                                : 'animate-pulse border-red-400 bg-red-500/20 text-red-100';
+                            } else if (!result?.correct && isCorrectChoice) {
+                              resultHighlight = 'animate-pulse border-green-400 bg-green-500/20 text-green-100';
+                            }
+                          }
                           return (
                             <label
                               key={`${player.id}-${answer.content}`}
                               className={`flex items-start gap-2 rounded-2xl border px-3 py-2 text-sm cursor-pointer transition ${
                                 active ? 'border-red-400 bg-white/10' : 'border-white/10 hover:border-white/30'
-                              } ${quizFinished ? 'opacity-80 cursor-default' : ''}`}
+                              } ${quizFinished ? 'opacity-80 cursor-default' : ''} ${resultHighlight}`}
                             >
                               <input
                                 type="radio"
