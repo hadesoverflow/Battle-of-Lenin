@@ -2,13 +2,34 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { QAPair } from '../types';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY ||
+  (typeof process !== 'undefined' ? process.env?.API_KEY : undefined);
 
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const FALLBACK_PAIRS: QAPair[] = [
+  { question: "Tác phẩm nào đặt nền móng cho Chủ nghĩa Mác?", answer: "Tuyên ngôn của Đảng Cộng sản (1848)." },
+  { question: "Lực lượng nào được xem là nòng cốt của cách mạng vô sản?", answer: "Giai cấp công nhân." },
+  { question: "Điểm khác biệt chính giữa giai cấp và tầng lớp xã hội?", answer: "Giai cấp gắn với quan hệ sở hữu; tầng lớp phản ánh vị trí xã hội rộng hơn." },
+  { question: "Liên bang Xô viết ra đời năm nào?", answer: "Năm 1922 sau Cách mạng Tháng Mười Nga." },
+  { question: "Khái niệm vật chất trong triết học Mác-Lênin là gì?", answer: "Phạm trù triết học chỉ thực tại khách quan, độc lập với ý thức." },
+  { question: "Ai lãnh đạo Cách mạng Tháng Mười Nga?", answer: "Vladimir I. Lênin." },
+  { question: "Nguyên tắc tổ chức cơ bản của Đảng Cộng sản là gì?", answer: "Tập trung dân chủ." },
+  { question: "Liên minh công-nông nhằm mục tiêu gì?", answer: "Tăng cường sức mạnh cách mạng và xây dựng chủ nghĩa xã hội." },
+  { question: "Kinh tế nhà nước giữ vai trò gì trong thời kỳ quá độ?", answer: "Lực lượng vật chất chủ đạo, công cụ điều tiết nền kinh tế." },
+  { question: "Tính Đảng trong triết học Mác-Lênin thể hiện như thế nào?", answer: "Đứng trên lập trường của giai cấp công nhân để phân tích và cải tạo thế giới." },
+];
+
+const getFallbackPairs = (count: number): QAPair[] => {
+  if (count <= FALLBACK_PAIRS.length) {
+    return FALLBACK_PAIRS.slice(0, count);
+  }
+  const result: QAPair[] = [];
+  while (result.length < count) {
+    result.push(...FALLBACK_PAIRS);
+  }
+  return result.slice(0, count);
+};
 
 const responseSchema = {
   type: Type.OBJECT,
@@ -30,6 +51,11 @@ const responseSchema = {
 };
 
 export const generateQAPairs = async (topic: string, count: number): Promise<QAPair[]> => {
+  if (!ai) {
+    console.warn("Gemini API key missing. Falling back to static data.");
+    return getFallbackPairs(count);
+  }
+
   try {
     const prompt = `Generate ${count} distinct question/answer pairs about the topic "${topic}". The questions and answers should be concise enough to fit on a small card.`;
 
@@ -53,6 +79,6 @@ export const generateQAPairs = async (topic: string, count: number): Promise<QAP
     }
   } catch (error) {
     console.error("Error generating Q&A pairs:", error);
-    throw new Error("Could not generate content from Gemini. Please check your API key and network connection.");
+    return getFallbackPairs(count);
   }
 };

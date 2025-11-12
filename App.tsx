@@ -22,6 +22,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('menu');
+  const [previousView, setPreviousView] = useState<View>('menu');
   const [gameMode, setGameMode] = useState<GameMode>('single');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [cards, setCards] = useState<CardData[]>([]);
@@ -91,6 +92,15 @@ const App: React.FC = () => {
     setError(null);
     setPlayers([]);
   }
+
+  const handleShowInstructions = useCallback(() => {
+    setPreviousView(view);
+    setView('instructions');
+  }, [view]);
+
+  const handleCloseInstructions = useCallback(() => {
+    setView(previousView);
+  }, [previousView]);
 
   const handleSelectMode = (mode: GameMode) => {
     setGameMode(mode);
@@ -169,7 +179,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (view) {
       case 'menu':
-        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={() => setView('instructions')} />;
+        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={handleShowInstructions} />;
       case 'lobby':
         return <Lobby gameMode={gameMode} onStartGame={handleStartGame} onReturnToMenu={handleReturnToMenu} isLoading={isLoading} error={error} />;
       case 'playing':
@@ -205,7 +215,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={() => setView('instructions')} />;
+        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={handleShowInstructions} />;
     }
   };
 
@@ -215,7 +225,7 @@ const App: React.FC = () => {
         Đấu Trí Mác-Lênin
       </h1>
       {renderContent()}
-      {view === 'instructions' && <InstructionsModal onClose={() => setView(gameMode ? 'lobby' : 'menu')} />}
+      {view === 'instructions' && <InstructionsModal onClose={handleCloseInstructions} />}
       {renderFinishedModal()}
     </main>
   );
