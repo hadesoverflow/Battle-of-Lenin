@@ -1,0 +1,57 @@
+[
+  {
+    "type": "singlechoice",
+    "content": "Chọn câu trả lời đúng theo quan điểm duy vật lịch sử:\nChủ thể sáng tạo chân chính ra lịch sử là:",
+    "answers": [
+      { "content": "Quần chúng nhân dân", "correct": true },
+      { "content": "Các cá nhân kiệt xuất, các vĩ nhân", "correct": false },
+      { "content": "Giai cấp thống trị", "correct": false },
+      { "content": "Tầng lớp tri thức trong xã hội", "correct": false }
+    ],
+    "explanation": "Quần chúng nhân dân là lực lượng trực tiếp tham gia lao động sản xuất và đấu tranh xã hội, do đó họ là chủ thể sáng tạo chân chính ra lịch sử."
+  },
+  {
+    "type": "singlechoice",
+    "content": "Xanh-ximông là đại biểu của trường phái nào?",
+    "answers": [
+      { "content": "Chủ nghĩa xã hội không tưởng Pháp", "correct": true },
+      { "content": "Chủ nghĩa xã hội không tưởng Đức", "correct": false },
+      { "content": "Triết học cổ điển Đức", "correct": false },
+      { "content": "Kinh tế chính trị học Anh", "correct": false }
+    ],
+    "explanation": "Xanh-ximông cùng Phuriê và Ô-oen là đại biểu của chủ nghĩa xã hội không tưởng Pháp, tiền đề của chủ nghĩa xã hội khoa học."
+  },
+  {
+    "type": "singlechoice",
+    "content": "Quan hệ giữa người với người trong quá trình sản xuất được gọi là gì?",
+    "answers": [
+      { "content": "Quan hệ xã hội", "correct": false },
+      { "content": "Quan hệ tổ chức quản lý", "correct": false },
+      { "content": "Quan hệ sản xuất", "correct": true },
+      { "content": "Quan hệ điều tiết", "correct": false }
+    ],
+    "explanation": "Quan hệ sản xuất là mối quan hệ giữa người với người trong quá trình sản xuất vật chất, bao gồm quan hệ sở hữu, tổ chức quản lý và phân phối."
+  },
+  {
+    "type": "singlechoice",
+    "content": "Một sinh viên tóm tắt nội dung quy luật về sự phù hợp giữa quan hệ sản xuất với trình độ của lực lượng sản xuất như sau. Đáp án nào sau đây là đúng?",
+    "answers": [
+      { "content": "Quy luật này vạch rõ sự phụ thuộc khách quan của lực lượng sản xuất vào quan hệ sản xuất", "correct": false },
+      { "content": "Sự hình thành, biến đổi và phát triển của quan hệ sản xuất được quyết định bởi lực lượng sản xuất", "correct": true },
+      { "content": "Lực lượng sản xuất và quan hệ sản xuất là hai mặt của phương thức sản xuất, chúng tồn tại độc lập nhau", "correct": false },
+      { "content": "Quy luật này chỉ tồn tại trong một vài xã hội", "correct": false }
+    ],
+    "explanation": "Quan hệ sản xuất hình thành, biến đổi và phát triển phải phù hợp với trình độ của lực lượng sản xuất; nếu không sẽ trở thành lực cản."
+  },
+  {
+    "type": "singlechoice",
+    "content": "Tri thức nào sau đây nảy sinh một cách trực tiếp từ thực tiễn lao động sản xuất?",
+    "answers": [
+      { "content": "Tri thức kinh nghiệm", "correct": true },
+      { "content": "Tri thức lý luận", "correct": false },
+      { "content": "Tri thức lý luận khoa học", "correct": false },
+      { "content": "Tri thức lý luận thực tiễn", "correct": false }
+    ],
+    "explanation": "Tri thức kinh nghiệm là những hiểu biết trực tiếp từ hoạt động sản xuất và đời sống, chưa khái quát thành lý luận."
+  }
+]

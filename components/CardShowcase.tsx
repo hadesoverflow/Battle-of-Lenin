@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CardData, CardOriginRect } from '../types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CardData, CardOriginRect, QuizResult } from '../types';
 
 interface CardShowcaseProps {
   card: CardData;
   originRect: CardOriginRect | null;
-  onQuestionComplete: (cardId: string, isCorrect: boolean) => void;
+  onQuestionComplete: (cardId: string, result: QuizResult) => void;
   onClose: () => void;
 }
 
@@ -38,6 +38,7 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({ card, originRect, onQuestio
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [answerTimeLeft, setAnswerTimeLeft] = useState<number | null>(null);
   const [awardedPoints, setAwardedPoints] = useState<number | null>(null);
+  const answerTimeRef = useRef<number>(ANSWER_TIME_LIMIT);
 
   const imageName = getImageName(card);
   const description = card.content || 'Chưa có mô tả cho thẻ này.';
@@ -93,6 +94,7 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({ card, originRect, onQuestio
     setIsAnswerCorrect(null);
     setAnswerTimeLeft(null);
     setAwardedPoints(null);
+    answerTimeRef.current = ANSWER_TIME_LIMIT;
 
     if (!showCardImage || !card.questionForm) return;
 
@@ -114,13 +116,13 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({ card, originRect, onQuestio
 
   const finalizeAnswer = useCallback((correct: boolean) => {
     if (isSubmitted) return;
-    const remaining = correct ? Math.max(0, answerTimeLeft ?? 0) : 0;
+    const remaining = correct ? Math.max(0, answerTimeRef.current) : 0;
     const points = correct ? Math.max(0, Math.round((remaining / ANSWER_TIME_LIMIT) * MAX_POINTS)) : 0;
     setIsAnswerCorrect(correct);
     setAwardedPoints(points);
     setIsSubmitted(true);
     onQuestionComplete(card.id, { correct, points });
-  }, [answerTimeLeft, card.id, isSubmitted, onQuestionComplete]);
+  }, [card.id, isSubmitted, onQuestionComplete]);
 
   const handleSubmit = useCallback((auto = false) => {
     if (!card.questionForm || isSubmitted) return;
@@ -140,24 +142,23 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({ card, originRect, onQuestio
   useEffect(() => {
     if (!showQuestionForm || isSubmitted) {
       setAnswerTimeLeft(null);
+      answerTimeRef.current = ANSWER_TIME_LIMIT;
       return;
     }
-    let remaining = ANSWER_TIME_LIMIT;
-    setAnswerTimeLeft(remaining);
+    answerTimeRef.current = ANSWER_TIME_LIMIT;
+    setAnswerTimeLeft(ANSWER_TIME_LIMIT);
     const interval = setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
+      answerTimeRef.current = Math.max(0, answerTimeRef.current - 1);
+      if (answerTimeRef.current <= 0) {
         setAnswerTimeLeft(0);
         clearInterval(interval);
-        if (!isSubmitted) {
-          handleSubmit(true);
-        }
+        finalizeAnswer(false);
       } else {
-        setAnswerTimeLeft(remaining);
+        setAnswerTimeLeft(answerTimeRef.current);
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [handleSubmit, isSubmitted, showQuestionForm]);
+  }, [finalizeAnswer, isSubmitted, showQuestionForm]);
 
   useEffect(() => {
     if (!isSubmitted) return;
