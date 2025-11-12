@@ -5,11 +5,16 @@ import Lobby from './components/Lobby';
 import InstructionsModal from './components/InstructionsModal';
 import Dashboard from './components/Dashboard';
 import PlayerList from './components/PlayerList';
-import { CardData, QAPair, Player } from './types';
+import CardShowcase from './components/CardShowcase';
+import { CardData, QAPair, Player, CardOriginRect, QuestionForm, QuizResult } from './types';
 import { generateQAPairs } from './services/geminiService';
 
 type View = 'menu' | 'lobby' | 'playing' | 'finished' | 'instructions';
 type GameMode = 'single' | 'couple';
+type FocusedCardState = {
+  card: CardData;
+  origin: CardOriginRect | null;
+};
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
@@ -19,6 +24,16 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   }
   return newArray;
 };
+
+const CARD_IMAGE_FILES = Array.from({ length: 24 }, (_, i) => `card ${i + 1}.jpg`);
+const CARD_IMAGE_PATHS = CARD_IMAGE_FILES.map((name) => `/images/${encodeURIComponent(name)}`);
+const DISTRACTOR_BANK = [
+  'Phương án khác mang tính khái quát',
+  'Nhận định đối lập với đáp án chính',
+  'Một ví dụ cụ thể nhưng sai',
+  'Lựa chọn mang tính gợi ý để người chơi phân vân',
+  'Một quan điểm không phù hợp với câu hỏi',
+];
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('menu');
@@ -32,17 +47,57 @@ const App: React.FC = () => {
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
+  const [focusedCard, setFocusedCard] = useState<FocusedCardState | null>(null);
 
-  const CARD_COUNT = 8; // Number of pairs
+  const CARD_COUNT = 12; // Number of pairs (24 cards total)
+
+  const buildQuestionForm = (pair: QAPair): QuestionForm => {
+    const incorrectOptions = shuffleArray(DISTRACTOR_BANK)
+      .slice(0, 3)
+      .map(content => ({
+        content,
+        correct: false,
+      }));
+
+    const answers = shuffleArray([
+      { content: pair.answer, correct: true },
+      ...incorrectOptions,
+    ]);
+
+    return {
+      type: 'singlechoice',
+      content: pair.question,
+      answers,
+      explanation: `Đáp án đúng: ${pair.answer}`,
+    };
+  };
 
   const createGameBoard = (qaPairs: QAPair[]) => {
     const gameCards: CardData[] = [];
     qaPairs.forEach((pair, index) => {
+      const imageSrc = CARD_IMAGE_PATHS[index % CARD_IMAGE_PATHS.length];
+      const questionForm = buildQuestionForm(pair);
       gameCards.push({
-        id: `q-${index}`, pairId: index, type: 'question', content: pair.question, isFlipped: false, isMatched: false,
+        id: `q-${index}`,
+        pairId: index,
+        type: 'question',
+        content: pair.question,
+        imageSrc,
+        questionForm,
+        isFlipped: false,
+        isMatched: false,
+        isLocked: false,
       });
       gameCards.push({
-        id: `a-${index}`, pairId: index, type: 'answer', content: pair.answer, isFlipped: false, isMatched: false,
+        id: `a-${index}`,
+        pairId: index,
+        type: 'answer',
+        content: pair.answer,
+        imageSrc,
+        questionForm,
+        isFlipped: false,
+        isMatched: false,
+        isLocked: false,
       });
     });
     setCards(shuffleArray(gameCards));
@@ -86,6 +141,10 @@ const App: React.FC = () => {
     setFlippedCards(newFlippedCards);
     setCards(prev => prev.map(c => c.id === clickedCard.id ? { ...c, isFlipped: true } : c));
   };
+  
+  const handleCardReveal = (card: CardData, origin: CardOriginRect | null) => {
+    setFocusedCard({ card, origin });
+  };
 
   const handleReturnToMenu = () => {
     setView('menu');
@@ -110,6 +169,26 @@ const App: React.FC = () => {
   const nextTurn = () => {
     setCurrentPlayerIndex(prevIndex => (prevIndex + 1) % players.length);
   };
+  
+  const closeShowcase = () => {
+    setFocusedCard(null);
+  };
+
+  const handleQuestionComplete = useCallback((cardId: string, result: QuizResult) => {
+    setCards(prev =>
+      prev.map(card =>
+        card.id === cardId ? { ...card, isFlipped: true, isLocked: true } : card
+      )
+    );
+    setPlayers(prevPlayers =>
+      prevPlayers.map((player, index) =>
+        index === currentPlayerIndex && result.correct
+          ? { ...player, score: player.score + result.points }
+          : player
+      )
+    );
+    setFocusedCard(prev => (prev && prev.card.id === cardId ? { ...prev, card: { ...prev.card, isLocked: true } } : prev));
+  }, [currentPlayerIndex]);
 
   useEffect(() => {
     if (flippedCards.length === 2) {
@@ -128,7 +207,17 @@ const App: React.FC = () => {
         // Player gets another turn
       } else {
         setTimeout(() => {
-          setCards(prev => prev.map(card => (card.id === firstCard.id || card.id === secondCard.id) ? { ...card, isFlipped: false } : card));
+          setCards(prev =>
+            prev.map(card => {
+              if (card.id === firstCard.id || card.id === secondCard.id) {
+                if (card.isLocked || card.isMatched) {
+                  return card;
+                }
+                return { ...card, isFlipped: false };
+              }
+              return card;
+            })
+          );
           setFlippedCards([]);
           setIsChecking(false);
           nextTurn();
@@ -210,7 +299,7 @@ const App: React.FC = () => {
             </div>
             {/* Game Board */}
             <div className="w-full flex-grow flex items-center justify-center">
-                <GameBoard cards={cards} onCardClick={handleCardClick} isDisabled={isChecking} />
+                <GameBoard cards={cards} onCardClick={handleCardClick} onRevealCard={handleCardReveal} isDisabled={isChecking} />
             </div>
           </div>
         );
@@ -226,6 +315,14 @@ const App: React.FC = () => {
       </h1>
       {renderContent()}
       {view === 'instructions' && <InstructionsModal onClose={handleCloseInstructions} />}
+      {focusedCard && (
+        <CardShowcase
+          card={focusedCard.card}
+          originRect={focusedCard.origin}
+          onQuestionComplete={handleQuestionComplete}
+          onClose={closeShowcase}
+        />
+      )}
       {renderFinishedModal()}
     </main>
   );
