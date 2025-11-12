@@ -14,6 +14,7 @@ type GameMode = 'single' | 'couple';
 type FocusedCardState = {
   card: CardData;
   origin: CardOriginRect | null;
+  quiz: QuestionForm;
 };
 
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -27,13 +28,6 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 const CARD_IMAGE_FILES = Array.from({ length: 24 }, (_, i) => `card ${i + 1}.jpg`);
 const CARD_IMAGE_PATHS = CARD_IMAGE_FILES.map((name) => `/images/${encodeURIComponent(name)}`);
-const DISTRACTOR_BANK = [
-  'Phương án khác mang tính khái quát',
-  'Nhận định đối lập với đáp án chính',
-  'Một ví dụ cụ thể nhưng sai',
-  'Lựa chọn mang tính gợi ý để người chơi phân vân',
-  'Một quan điểm không phù hợp với câu hỏi',
-];
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('menu');
@@ -48,42 +42,37 @@ const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
   const [focusedCard, setFocusedCard] = useState<FocusedCardState | null>(null);
+  const [quizBank, setQuizBank] = useState<QuestionForm[]>([]);
+  const [quizError, setQuizError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadQuiz = async () => {
+      try {
+        const response = await fetch('/data/Quiz.json');
+        if (!response.ok) {
+          throw new Error('Failed to load quiz data');
+        }
+        const data = await response.json();
+        setQuizBank(data);
+      } catch (err) {
+        setQuizError('Không thể tải dữ liệu câu hỏi. Vui lòng thử lại.');
+      }
+    };
+    loadQuiz();
+  }, []);
 
   const CARD_COUNT = 12; // Number of pairs (24 cards total)
-
-  const buildQuestionForm = (pair: QAPair): QuestionForm => {
-    const incorrectOptions = shuffleArray(DISTRACTOR_BANK)
-      .slice(0, 3)
-      .map(content => ({
-        content,
-        correct: false,
-      }));
-
-    const answers = shuffleArray([
-      { content: pair.answer, correct: true },
-      ...incorrectOptions,
-    ]);
-
-    return {
-      type: 'singlechoice',
-      content: pair.question,
-      answers,
-      explanation: `Đáp án đúng: ${pair.answer}`,
-    };
-  };
 
   const createGameBoard = (qaPairs: QAPair[]) => {
     const gameCards: CardData[] = [];
     qaPairs.forEach((pair, index) => {
       const imageSrc = CARD_IMAGE_PATHS[index % CARD_IMAGE_PATHS.length];
-      const questionForm = buildQuestionForm(pair);
       gameCards.push({
         id: `q-${index}`,
         pairId: index,
         type: 'question',
         content: pair.question,
         imageSrc,
-        questionForm,
         isFlipped: false,
         isMatched: false,
         isLocked: false,
@@ -94,7 +83,6 @@ const App: React.FC = () => {
         type: 'answer',
         content: pair.answer,
         imageSrc,
-        questionForm,
         isFlipped: false,
         isMatched: false,
         isLocked: false,
@@ -114,7 +102,11 @@ const App: React.FC = () => {
     setMoves(0);
     setFlippedCards([]);
     setCurrentPlayerIndex(0);
-    setPlayers(playerNames.map((name, index) => ({ id: index, name, score: 0 })));
+    const initialPlayers = playerNames.map((name, index) => ({ id: index, name, score: 0 }));
+    setPlayers(initialPlayers);
+    if (initialPlayers.length > 0) {
+      setCurrentPlayerIndex(Math.floor(Math.random() * initialPlayers.length));
+    }
 
     try {
       const pairs = await generateQAPairs("Chủ nghĩa Mác-Lênin", CARD_COUNT);
@@ -133,6 +125,11 @@ const App: React.FC = () => {
   }, [players, handleStartGame]);
 
 
+  const pickRandomChooser = useCallback(() => {
+    if (!players.length) return;
+    setCurrentPlayerIndex(Math.floor(Math.random() * players.length));
+  }, [players.length]);
+
   const handleCardClick = (clickedCard: CardData) => {
     if (isChecking || clickedCard.isFlipped || clickedCard.isMatched || flippedCards.length >= 2) {
       return;
@@ -143,7 +140,12 @@ const App: React.FC = () => {
   };
   
   const handleCardReveal = (card: CardData, origin: CardOriginRect | null) => {
-    setFocusedCard({ card, origin });
+    if (!quizBank.length) {
+      setError(quizError ?? 'Đang tải câu hỏi, hãy thử lại sau.');
+      return;
+    }
+    const quiz = quizBank[Math.floor(Math.random() * quizBank.length)];
+    setFocusedCard({ card, origin, quiz });
   };
 
   const handleReturnToMenu = () => {
@@ -166,29 +168,23 @@ const App: React.FC = () => {
     setView('lobby');
   }
 
-  const nextTurn = () => {
-    setCurrentPlayerIndex(prevIndex => (prevIndex + 1) % players.length);
-  };
-  
-  const closeShowcase = () => {
-    setFocusedCard(null);
-  };
+  const handlePlayerQuizResult = useCallback((playerId: number, result: QuizResult) => {
+    setPlayers(prevPlayers =>
+      prevPlayers.map(player =>
+        player.id === playerId ? { ...player, score: player.score + result.points } : player
+      )
+    );
+  }, []);
 
-  const handleQuestionComplete = useCallback((cardId: string, result: QuizResult) => {
+  const handleQuizComplete = useCallback((cardId: string) => {
     setCards(prev =>
       prev.map(card =>
         card.id === cardId ? { ...card, isFlipped: true, isLocked: true } : card
       )
     );
-    setPlayers(prevPlayers =>
-      prevPlayers.map((player, index) =>
-        index === currentPlayerIndex && result.correct
-          ? { ...player, score: player.score + result.points }
-          : player
-      )
-    );
-    setFocusedCard(prev => (prev && prev.card.id === cardId ? { ...prev, card: { ...prev.card, isLocked: true } } : prev));
-  }, [currentPlayerIndex]);
+    setFocusedCard(null);
+    pickRandomChooser();
+  }, [pickRandomChooser]);
 
   useEffect(() => {
     if (flippedCards.length === 2) {
@@ -204,7 +200,7 @@ const App: React.FC = () => {
         ));
         setFlippedCards([]);
         setIsChecking(false);
-        // Player gets another turn
+        pickRandomChooser();
       } else {
         setTimeout(() => {
           setCards(prev =>
@@ -220,11 +216,11 @@ const App: React.FC = () => {
           );
           setFlippedCards([]);
           setIsChecking(false);
-          nextTurn();
+          pickRandomChooser();
         }, 1200);
       }
     }
-  }, [flippedCards, currentPlayerIndex, players]);
+  }, [flippedCards, pickRandomChooser, currentPlayerIndex, players]);
 
   useEffect(() => {
     if (cards.length > 0 && cards.every(card => card.isMatched)) {
@@ -313,14 +309,19 @@ const App: React.FC = () => {
       <h1 className="text-4xl sm:text-5xl font-bold text-center text-[#c70000] my-4 sm:my-8 uppercase tracking-wider flex-shrink-0" style={{ textShadow: '2px 2px #000' }}>
         Đấu Trí Mác-Lênin
       </h1>
+      {quizError && (
+        <p className="text-center text-sm text-red-300 mb-2">{quizError}</p>
+      )}
       {renderContent()}
       {view === 'instructions' && <InstructionsModal onClose={handleCloseInstructions} />}
       {focusedCard && (
         <CardShowcase
           card={focusedCard.card}
+          quiz={focusedCard.quiz}
+          players={players}
           originRect={focusedCard.origin}
-          onQuestionComplete={handleQuestionComplete}
-          onClose={closeShowcase}
+          onPlayerResult={handlePlayerQuizResult}
+          onQuizComplete={handleQuizComplete}
         />
       )}
       {renderFinishedModal()}
