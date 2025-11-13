@@ -10,27 +10,51 @@ const InstructionsModal: React.FC<InstructionsModalProps> = ({ onClose }) => {
             <div className="bg-[#fdf6e3] p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-2xl text-black border-4 border-black relative max-h-[90vh] overflow-y-auto">
                 <h2 className="text-3xl font-bold mb-4 text-center text-[#c70000] uppercase">Hướng Dẫn Chơi</h2>
                 
-                <div className="space-y-4 text-left">
-                    <div>
-                        <h3 className="font-bold text-xl mb-1">Mục Tiêu</h3>
-                        <p>Lật các thẻ bài để tìm và ghép các cặp Câu Hỏi và Câu Trả Lời tương ứng về chủ nghĩa Mác-Lênin. Người chơi/đội có nhiều cặp nhất khi tất cả các thẻ đã được lật sẽ chiến thắng.</p>
+                <div className="space-y-6 text-left">
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-xl">🎯 MỤC TIÊU</h3>
+                        <p>
+                            Lật các thẻ bài để xem nội dung của thẻ được chọn và <strong>trả lời câu hỏi tương ứng</strong>.
+                        </p>
+                        <p>
+                            Trò chơi giúp người chơi <strong>ôn lại kiến thức, củng cố tinh thần</strong>, và chuẩn bị cho một
+                            <strong> kỳ FA25 thật tốt đẹp</strong>.
+                        </p>
                     </div>
 
-                    <div>
-                        <h3 className="font-bold text-xl mb-1">Cách Chơi</h3>
+                    <div className="space-y-3">
+                        <h3 className="font-bold text-xl">🎮 CÁCH CHƠI</h3>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold">🔹 1. Chọn thẻ</h4>
+                            <p>Trò chơi sẽ <strong>random một người chơi</strong> để chọn 1 tấm thẻ bất kỳ trên bàn.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold">🔹 2. Hiện nội dung thẻ</h4>
+                            <p>Khi thẻ được mở, <strong>sau 3 giây</strong>, hệ thống sẽ hiển thị <strong>thử thách/câu hỏi</strong> của thẻ đó.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold">🔹 3. Trả lời câu hỏi</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li>Mỗi câu hỏi có <strong>20 giây</strong> để trả lời.</li>
+                                <li>Mỗi thẻ có giá trị <strong>tối đa 100 điểm</strong>.</li>
+                                <li>Điểm <strong>phụ thuộc vào tốc độ trả lời</strong> (càng nhanh → điểm càng cao).</li>
+                                <li>Nếu trả lời sai, người chơi nhận <strong>0 điểm</strong> cho thẻ đó.</li>
+                            </ul>
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold">🔹 4. Kết thúc trò chơi</h4>
+                            <p>
+                                Sau khi <strong>24 thẻ</strong> trên bàn được mở hết, hệ thống tổng hợp điểm và xếp hạng
+                                <strong> Top 1 – Top 2 – Top 3</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-xl">🧩 CHẾ ĐỘ CHƠI</h3>
                         <ul className="list-disc list-inside space-y-1">
-                            <li>Tại lượt của mình, người chơi lật hai thẻ bài bất kỳ.</li>
-                            <li><strong>Nếu trùng khớp:</strong> Hai thẻ tạo thành một cặp Câu Hỏi - Câu Trả Lời đúng, chúng sẽ được giữ nguyên và người chơi/đội nhận được 1 điểm.</li>
-                            <li><strong>Nếu không khớp:</strong> Hai thẻ sẽ tự động bị lật úp lại sau một khoảng thời gian ngắn.</li>
-                            <li>Hãy cố gắng ghi nhớ vị trí và nội dung của các thẻ đã lật để tìm các cặp ở lượt tiếp theo.</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h3 className="font-bold text-xl mb-1">Chế Độ Chơi</h3>
-                         <ul className="list-disc list-inside space-y-1">
-                            <li><strong>Chơi Đơn:</strong> Mọi người thi đấu với nhau. Người tìm được nhiều cặp nhất sẽ là người chiến thắng cuối cùng.</li>
-                            <li><strong>Cặp Đôi Hoàn Hảo:</strong> Chơi theo đội (cặp 2 người). Các đội sẽ thay phiên nhau lật bài. Đội tìm được nhiều cặp nhất sẽ chiến thắng.</li>
+                            <li>Người chơi có thể <strong>chơi đơn</strong>.</li>
+                            <li>Hoặc <strong>mời bạn bè</strong> tham gia để thi đấu cùng nhau.</li>
                         </ul>
                     </div>
                 </div>

@@ -9,7 +9,6 @@ import CardShowcase from './components/CardShowcase';
 import { CardData, QAPair, Player, CardOriginRect, QuestionForm, QuizResult } from './types';
 
 type View = 'menu' | 'lobby' | 'playing' | 'finished' | 'instructions';
-type GameMode = 'single' | 'couple';
 type FocusedCardState = {
   card: CardData;
   origin: CardOriginRect | null;
@@ -64,7 +63,6 @@ const VIEW_SOUNDTRACKS: Record<View, string> = {
 const App: React.FC = () => {
   const [view, setView] = useState<View>('menu');
   const [previousView, setPreviousView] = useState<View>('menu');
-  const [gameMode, setGameMode] = useState<GameMode>('single');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [cards, setCards] = useState<CardData[]>([]);
   const [flippedCards, setFlippedCards] = useState<CardData[]>([]);
@@ -284,10 +282,9 @@ const App: React.FC = () => {
     setView(previousView);
   }, [previousView]);
 
-  const handleSelectMode = (mode: GameMode) => {
-    setGameMode(mode);
+  const handleEnterLobby = () => {
     setView('lobby');
-  }
+  };
 
   const handlePlayerQuizResult = useCallback((playerId: number, result: QuizResult) => {
     setPlayers(prevPlayers =>
@@ -423,9 +420,9 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (view) {
       case 'menu':
-        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={handleShowInstructions} />;
+        return <MainMenu onStartSingle={handleEnterLobby} onShowInstructions={handleShowInstructions} />;
       case 'lobby':
-        return <Lobby gameMode={gameMode} onStartGame={handleStartGame} onReturnToMenu={handleReturnToMenu} isLoading={isLoading} error={error} />;
+        return <Lobby onStartGame={handleStartGame} onReturnToMenu={handleReturnToMenu} isLoading={isLoading} error={error} />;
       case 'playing':
       case 'finished':
         const currentPlayer = players[currentPlayerIndex];
@@ -459,12 +456,20 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <MainMenu onSelectMode={handleSelectMode} onShowInstructions={handleShowInstructions} />;
+        return <MainMenu onStartSingle={handleEnterLobby} onShowInstructions={handleShowInstructions} />;
     }
   };
 
   return (
-    <main className="min-h-screen text-slate-100 flex flex-col items-center p-4 sm:p-6">
+    <main
+      className="min-h-screen text-slate-100 flex flex-col items-center p-4 sm:p-6 bg-black/80"
+      style={{
+        backgroundImage: "url('/background/background.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
       <h1 className="text-4xl sm:text-5xl font-bold text-center text-[#c70000] my-4 sm:my-8 uppercase tracking-wider flex-shrink-0" style={{ textShadow: '2px 2px #000' }}>
         Battle Of Lenin
       </h1>

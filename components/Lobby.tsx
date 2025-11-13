@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-type GameMode = 'single' | 'couple';
-
 interface LobbyProps {
-    gameMode: GameMode;
     onStartGame: (playerNames: string[]) => void;
     onReturnToMenu: () => void;
     isLoading: boolean;
@@ -14,7 +11,7 @@ const generateRoomCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-const Lobby: React.FC<LobbyProps> = ({ gameMode, onStartGame, onReturnToMenu, isLoading, error }) => {
+const Lobby: React.FC<LobbyProps> = ({ onStartGame, onReturnToMenu, isLoading, error }) => {
     const [roomCode, setRoomCode] = useState('');
     const [playerNames, setPlayerNames] = useState<string[]>([]);
     const [playerNameInput, setPlayerNameInput] = useState('');
@@ -35,7 +32,7 @@ const Lobby: React.FC<LobbyProps> = ({ gameMode, onStartGame, onReturnToMenu, is
         setJoinLocked(false);
         setJoinCode('');
         setJoinMessage(null);
-    }, [gameMode]);
+    }, []);
 
     const handleAddPlayer = () => {
         if (playerNameInput.trim() && !playerNames.includes(playerNameInput.trim())) {
@@ -87,12 +84,10 @@ const Lobby: React.FC<LobbyProps> = ({ gameMode, onStartGame, onReturnToMenu, is
         });
     };
     
-    const gameModeText = gameMode === 'single' ? 'Chơi Đơn' : 'Cặp Đôi Hoàn Hảo';
-
     return (
         <div className="bg-[#fdf6e3] p-8 rounded-xl shadow-2xl w-full max-w-2xl border-4 border-black space-y-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <h2 className="text-3xl font-bold text-black">{gameModeText}</h2>
+                <h2 className="text-3xl font-bold text-black">Chơi</h2>
                 <div className="flex bg-black/10 rounded-lg overflow-hidden">
                     <button
                         onClick={() => setLobbyMode('create')}
