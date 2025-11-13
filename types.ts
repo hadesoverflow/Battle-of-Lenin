@@ -12,7 +12,7 @@ export interface CardData {
   questionForm?: QuestionForm;
   isFlipped: boolean;
   isMatched: boolean;
-  isLocked?: boolean;
+  isCompleted: boolean;
 }
 
 export interface Player {

@@ -7,7 +7,6 @@ import Dashboard from './components/Dashboard';
 import PlayerList from './components/PlayerList';
 import CardShowcase from './components/CardShowcase';
 import { CardData, QAPair, Player, CardOriginRect, QuestionForm, QuizResult } from './types';
-import { generateQAPairs } from './services/geminiService';
 
 type View = 'menu' | 'lobby' | 'playing' | 'finished' | 'instructions';
 type GameMode = 'single' | 'couple';
@@ -77,6 +76,7 @@ const App: React.FC = () => {
   const [focusedCard, setFocusedCard] = useState<FocusedCardState | null>(null);
   const [quizBank, setQuizBank] = useState<QuestionForm[]>([]);
   const [quizError, setQuizError] = useState<string | null>(null);
+  const quizDeckRef = useRef<QuestionForm[]>([]);
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const backgroundTrackRef = useRef<string | null>(null);
   const stopBackgroundAudio = useCallback(() => {
@@ -123,6 +123,18 @@ const App: React.FC = () => {
     loadQuiz();
   }, []);
   useEffect(() => {
+    quizDeckRef.current = quizBank.length ? shuffleArray(quizBank) : [];
+  }, [quizBank]);
+  const drawQuizQuestion = useCallback(() => {
+    if (!quizBank.length) {
+      return null;
+    }
+    if (!quizDeckRef.current.length) {
+      quizDeckRef.current = shuffleArray(quizBank);
+    }
+    return quizDeckRef.current.shift() ?? null;
+  }, [quizBank]);
+  useEffect(() => {
     if (focusedCard) {
       stopBackgroundAudio();
       return;
@@ -137,6 +149,34 @@ const App: React.FC = () => {
   useEffect(() => () => stopBackgroundAudio(), [stopBackgroundAudio]);
 
   const CARD_COUNT = 12; // Number of pairs (24 cards total)
+
+  const buildPairsFromQuiz = useCallback(
+    (count: number): QAPair[] => {
+      const validQuestions = quizBank.filter((question) =>
+        question.answers.some((answer) => answer.correct),
+      );
+      if (validQuestions.length === 0) {
+        throw new Error('Bộ câu hỏi chưa sẵn sàng hoặc thiếu đáp án đúng.');
+      }
+
+      const pool: QuestionForm[] = [];
+      while (pool.length < count) {
+        pool.push(...shuffleArray(validQuestions));
+      }
+
+      return pool.slice(0, count).map((question) => {
+        const correctAnswer = question.answers.find((answer) => answer.correct);
+        if (!correctAnswer) {
+          throw new Error(`Câu hỏi "${question.content}" không có đáp án đúng.`);
+        }
+        return {
+          question: question.content,
+          answer: correctAnswer.content,
+        };
+      });
+    },
+    [quizBank],
+  );
 
   const createGameBoard = (qaPairs: QAPair[]) => {
     const requiredCards = qaPairs.length * 2;
@@ -156,7 +196,7 @@ const App: React.FC = () => {
         imageSrc: questionImageSrc,
         isFlipped: false,
         isMatched: false,
-        isLocked: false,
+        isCompleted: false,
       });
       gameCards.push({
         id: `a-${index}`,
@@ -166,13 +206,13 @@ const App: React.FC = () => {
         imageSrc: answerImageSrc,
         isFlipped: false,
         isMatched: false,
-        isLocked: false,
+        isCompleted: false,
       });
     });
     setCards(shuffleArray(gameCards));
   };
 
-  const handleStartGame = useCallback(async (playerNames: string[]) => {
+  const handleStartGame = useCallback((playerNames: string[]) => {
     if (playerNames.length === 0) {
       setError("Cần có ít nhất một người chơi để bắt đầu!");
       return;
@@ -190,16 +230,16 @@ const App: React.FC = () => {
     }
 
     try {
-      const pairs = await generateQAPairs("Chủ nghĩa Mác-Lênin", CARD_COUNT);
+      const pairs = buildPairsFromQuiz(CARD_COUNT);
       createGameBoard(pairs);
       setView('playing');
     } catch (e: any) {
-      setError(e.message || "An unknown error occurred.");
+      setError(e.message || "Không thể tạo bộ câu hỏi từ Quiz.json.");
       setView('lobby'); // Go back to lobby on error
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [buildPairsFromQuiz]);
   
   const handleRestartGame = useCallback(() => {
     handleStartGame(players.map(p => p.name));
@@ -221,11 +261,11 @@ const App: React.FC = () => {
   };
   
   const handleCardReveal = (card: CardData, origin: CardOriginRect | null) => {
-    if (!quizBank.length) {
+    const quiz = drawQuizQuestion();
+    if (!quiz) {
       setError(quizError ?? 'Đang tải câu hỏi, hãy thử lại sau.');
       return;
     }
-    const quiz = quizBank[Math.floor(Math.random() * quizBank.length)];
     setFocusedCard({ card, origin, quiz });
   };
 
@@ -260,7 +300,7 @@ const App: React.FC = () => {
   const handleQuizComplete = useCallback((cardId: string) => {
     setCards(prev =>
       prev.map(card =>
-        card.id === cardId ? { ...card, isFlipped: true, isLocked: true } : card
+        card.id === cardId ? { ...card, isFlipped: true, isCompleted: true } : card
       )
     );
     setFocusedCard(null);
@@ -287,9 +327,6 @@ const App: React.FC = () => {
           setCards(prev =>
             prev.map(card => {
               if (card.id === firstCard.id || card.id === secondCard.id) {
-                if (card.isLocked || card.isMatched) {
-                  return card;
-                }
                 return { ...card, isFlipped: false };
               }
               return card;
@@ -304,7 +341,7 @@ const App: React.FC = () => {
   }, [flippedCards, pickRandomChooser, currentPlayerIndex, players]);
 
   useEffect(() => {
-    if (cards.length > 0 && cards.every(card => card.isMatched)) {
+    if (cards.length > 0 && cards.every(card => card.isCompleted)) {
       setView('finished');
     }
   }, [cards]);
@@ -429,7 +466,7 @@ const App: React.FC = () => {
   return (
     <main className="min-h-screen text-slate-100 flex flex-col items-center p-4 sm:p-6">
       <h1 className="text-4xl sm:text-5xl font-bold text-center text-[#c70000] my-4 sm:my-8 uppercase tracking-wider flex-shrink-0" style={{ textShadow: '2px 2px #000' }}>
-        Đấu Trí Mác-Lênin
+        Battle Of Lenin
       </h1>
       {quizError && (
         <p className="text-center text-sm text-red-300 mb-2">{quizError}</p>

@@ -51,6 +51,7 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
 
   const answerTimeRef = useRef(ANSWER_TIME_LIMIT);
   const finalizeRef = useRef(false);
+  const finalizeQuizRef = useRef<() => void>(() => {});
   const stageAudioRef = useRef<HTMLAudioElement | null>(null);
   const stageTrackRef = useRef<QuizStage | null>(null);
   const stopStageAudio = useCallback(() => {
@@ -189,6 +190,9 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
     setPlayerResults(results);
     setQuizFinished(true);
   }, [players, quiz.answers, selectedAnswers, onPlayerResult]);
+  useEffect(() => {
+    finalizeQuizRef.current = finalizeQuiz;
+  }, [finalizeQuiz]);
 
   useEffect(() => {
     if (!showQuestionForm || quizFinished) {
@@ -205,14 +209,14 @@ const CardShowcase: React.FC<CardShowcaseProps> = ({
       if (answerTimeRef.current <= 0) {
         setAnswerTimeLeft(0);
         clearInterval(interval);
-        finalizeQuiz();
+        finalizeQuizRef.current();
       } else {
         setAnswerTimeLeft(answerTimeRef.current);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showQuestionForm, quizFinished, finalizeQuiz]);
+  }, [showQuestionForm, quizFinished]);
 
   useEffect(() => {
     if (!quizFinished || !playerResults) return;
