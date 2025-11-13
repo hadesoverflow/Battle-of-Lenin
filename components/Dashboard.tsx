@@ -3,10 +3,10 @@ import { Player } from '../types';
 
 interface DashboardProps {
     currentPlayer?: Player;
-    moves: number;
+    wrongAnswers: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ currentPlayer, moves }) => {
+const Dashboard: React.FC<DashboardProps> = ({ currentPlayer, wrongAnswers }) => {
     if (!currentPlayer) {
         return null;
     }
@@ -26,7 +26,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentPlayer, moves }) => {
                 </div>
                 <div className="pt-3">
                     <p className="text-sm sm:text-base uppercase text-gray-300">Tổng Lượt Sai</p>
-                    <p className="text-2xl sm:text-3xl font-bold">{moves}</p>
+                    <p className="text-2xl sm:text-3xl font-bold">{wrongAnswers}</p>
                 </div>
             </div>
         </div>

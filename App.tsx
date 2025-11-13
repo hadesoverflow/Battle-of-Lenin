@@ -67,6 +67,7 @@ const App: React.FC = () => {
   const [cards, setCards] = useState<CardData[]>([]);
   const [flippedCards, setFlippedCards] = useState<CardData[]>([]);
   const [moves, setMoves] = useState<number>(0);
+  const [wrongAnswers, setWrongAnswers] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -112,7 +113,7 @@ const App: React.FC = () => {
         if (!response.ok) {
           throw new Error('Failed to load quiz data');
         }
-        const data = await response.json();
+        const data = await response.json() as QuestionForm[];
         setQuizBank(data);
       } catch (err) {
         setQuizError('Không thể tải dữ liệu câu hỏi. Vui lòng thử lại.');
@@ -152,7 +153,7 @@ const App: React.FC = () => {
     (count: number): QAPair[] => {
       const validQuestions = quizBank.filter((question) =>
         question.answers.some((answer) => answer.correct),
-      );
+      ) as QuestionForm[];
       if (validQuestions.length === 0) {
         throw new Error('Bộ câu hỏi chưa sẵn sàng hoặc thiếu đáp án đúng.');
       }
@@ -219,6 +220,7 @@ const App: React.FC = () => {
     setError(null);
     setCards([]);
     setMoves(0);
+    setWrongAnswers(0);
     setFlippedCards([]);
     setCurrentPlayerIndex(0);
     const initialPlayers = playerNames.map((name, index) => ({ id: index, name, score: 0 }));
@@ -250,7 +252,9 @@ const App: React.FC = () => {
   }, [players.length]);
 
   const handleCardClick = (clickedCard: CardData) => {
-    if (isChecking || clickedCard.isFlipped || clickedCard.isMatched || flippedCards.length >= 2) {
+    // Chỉ đếm những thẻ chưa completed trong flippedCards
+    const activeFlippedCards = flippedCards.filter(card => !card.isCompleted);
+    if (isChecking || clickedCard.isFlipped || clickedCard.isMatched || activeFlippedCards.length >= 2) {
       return;
     }
     const newFlippedCards = [...flippedCards, clickedCard];
@@ -292,7 +296,11 @@ const App: React.FC = () => {
         player.id === playerId ? { ...player, score: player.score + result.points } : player
       )
     );
-  }, []);
+    // Tăng wrongAnswers nếu người chơi hiện tại trả lời sai
+    if (!result.correct && playerId === currentPlayerIndex) {
+      setWrongAnswers(prev => prev + 1);
+    }
+  }, [currentPlayerIndex]);
 
   const handleQuizComplete = useCallback((cardId: string) => {
     setCards(prev =>
@@ -300,14 +308,18 @@ const App: React.FC = () => {
         card.id === cardId ? { ...card, isFlipped: true, isCompleted: true } : card
       )
     );
+    // Xóa thẻ đã completed khỏi flippedCards để không ảnh hưởng logic kiểm tra cặp
+    setFlippedCards(prev => prev.filter(card => card.id !== cardId));
     setFocusedCard(null);
     pickRandomChooser();
   }, [pickRandomChooser]);
 
   useEffect(() => {
-    if (flippedCards.length === 2) {
+    // Chỉ kiểm tra khi có đúng 2 thẻ chưa completed
+    const activeFlippedCards = flippedCards.filter(card => !card.isCompleted);
+    if (activeFlippedCards.length === 2) {
       setIsChecking(true);
-      const [firstCard, secondCard] = flippedCards;
+      const [firstCard, secondCard] = activeFlippedCards;
       
       setMoves(m => m + 1); // Increment moves for every pair flip
 
@@ -316,7 +328,8 @@ const App: React.FC = () => {
         setPlayers(prevPlayers => prevPlayers.map((player, index) => 
             index === currentPlayerIndex ? { ...player, score: player.score + 1 } : player
         ));
-        setFlippedCards([]);
+        // Xóa cả 2 thẻ khỏi flippedCards (kể cả completed)
+        setFlippedCards(prev => prev.filter(card => card.id !== firstCard.id && card.id !== secondCard.id));
         setIsChecking(false);
         pickRandomChooser();
       } else {
@@ -324,12 +337,17 @@ const App: React.FC = () => {
           setCards(prev =>
             prev.map(card => {
               if (card.id === firstCard.id || card.id === secondCard.id) {
-                return { ...card, isFlipped: false };
+                // Chỉ úp lại nếu thẻ chưa completed
+                if (!card.isCompleted) {
+                  return { ...card, isFlipped: false };
+                }
+                return card; // Giữ nguyên nếu đã completed
               }
               return card;
             })
           );
-          setFlippedCards([]);
+          // Chỉ xóa khỏi flippedCards những thẻ chưa completed (giữ lại thẻ đã completed)
+          setFlippedCards(prev => prev.filter(card => card.isCompleted || (card.id !== firstCard.id && card.id !== secondCard.id)));
           setIsChecking(false);
           pickRandomChooser();
         }, 1200);
@@ -430,7 +448,7 @@ const App: React.FC = () => {
           <div className="flex flex-col md:flex-row w-full max-w-7xl mx-auto gap-6 flex-grow">
             {/* Sidebar */}
             <div className="w-full md:w-72 lg:w-80 flex-shrink-0 bg-black/80 p-4 rounded-lg border-2 border-[#c70000] flex flex-col shadow-lg">
-                <Dashboard currentPlayer={currentPlayer} moves={moves}/>
+                <Dashboard currentPlayer={currentPlayer} wrongAnswers={wrongAnswers}/>
                 <PlayerList players={players} currentPlayerId={currentPlayer?.id ?? -1} />
                 <div className="mt-auto pt-4 space-y-3">
                    {view === 'finished' && (
